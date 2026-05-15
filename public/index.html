@@ -1,0 +1,1241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Company Research Agent</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3348;
+      --accent: #6366f1;
+      --accent-hover: #818cf8;
+      --text: #e2e8f0;
+      --text-muted: #64748b;
+      --text-dim: #94a3b8;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --info: #3b82f6;
+      --radius: 10px;
+      --radius-sm: 6px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .header-title span { font-size: 22px; }
+
+    .health-indicators {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .health-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      font-weight: 500;
+    }
+
+    .health-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+    }
+
+    .health-dot.ok { background: var(--success); box-shadow: 0 0 6px var(--success); }
+    .health-dot.err { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
+
+    main {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Upload */
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 48px 32px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      position: relative;
+    }
+
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(99, 102, 241, 0.05);
+    }
+
+    .drop-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+    }
+
+    .drop-zone-icon { font-size: 40px; margin-bottom: 12px; }
+    .drop-zone-text { font-size: 16px; font-weight: 500; color: var(--text); }
+    .drop-zone-sub { color: var(--text-muted); font-size: 13px; margin-top: 4px; }
+
+    /* Upload summary */
+    .upload-summary {
+      display: none;
+      margin-top: 20px;
+      padding: 16px;
+      background: var(--surface2);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+    }
+
+    .summary-counts {
+      display: flex;
+      gap: 24px;
+      margin-bottom: 12px;
+    }
+
+    .summary-count {
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .count-value {
+      font-size: 24px;
+      font-weight: 700;
+      display: block;
+    }
+
+    .count-value.green { color: var(--success); }
+    .count-value.yellow { color: var(--warning); }
+
+    /* Collapsible */
+    .collapsible-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      padding: 8px 0;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-dim);
+      border-top: 1px solid var(--border);
+      margin-top: 12px;
+      user-select: none;
+    }
+
+    .collapsible-header:hover { color: var(--text); }
+    .collapsible-body { display: none; margin-top: 8px; }
+    .collapsible-body.open { display: block; }
+    .chevron { transition: transform 0.2s; }
+    .chevron.open { transform: rotate(180deg); }
+
+    /* Buttons */
+    button {
+      cursor: pointer;
+      border: none;
+      outline: none;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      border-radius: var(--radius-sm);
+      transition: all 0.15s;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      padding: 8px 18px;
+    }
+
+    .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-secondary {
+      background: var(--surface2);
+      color: var(--text);
+      padding: 8px 16px;
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+    .btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-danger {
+      background: transparent;
+      color: var(--danger);
+      padding: 6px 12px;
+      border: 1px solid transparent;
+    }
+
+    .btn-danger:hover { background: rgba(239, 68, 68, 0.1); border-color: var(--danger); }
+
+    .btn-sm { padding: 4px 10px; font-size: 12px; }
+
+    /* Progress */
+    .progress-wrap {
+      display: none;
+      margin-top: 20px;
+    }
+
+    .progress-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+    }
+
+    .progress-bar-track {
+      height: 6px;
+      background: var(--surface2);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent-hover));
+      border-radius: 3px;
+      transition: width 0.4s ease;
+      width: 0%;
+    }
+
+    .progress-company {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 6px;
+      min-height: 18px;
+    }
+
+    /* Research result cards */
+    .results-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    .result-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .result-card.failed { border-color: rgba(239, 68, 68, 0.3); }
+    .result-card.success { border-color: rgba(34, 197, 94, 0.2); }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+    .result-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 10px;
+      gap: 8px;
+    }
+
+    .result-card-name { font-weight: 600; font-size: 14px; }
+    .result-card-domain { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+    /* Badges */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .badge-strong { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); }
+    .badge-moderate { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+    .badge-weak { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .badge-pending { background: rgba(100, 116, 139, 0.15); color: #94a3b8; border: 1px solid var(--border); }
+    .badge-failed { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .badge-completed { background: rgba(34, 197, 94, 0.1); color: #86efac; border: 1px solid rgba(34, 197, 94, 0.2); }
+    .badge-pushed { background: rgba(99, 102, 241, 0.15); color: #a5b4fc; border: 1px solid rgba(99, 102, 241, 0.3); }
+    .badge-not-pushed { background: rgba(100, 116, 139, 0.1); color: #64748b; border: 1px solid var(--border); }
+
+    /* Filters */
+    .filters {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .filter-select {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      padding: 6px 10px;
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+      outline: none;
+    }
+
+    .filter-select:focus { border-color: var(--accent); }
+
+    /* Table */
+    .table-wrap {
+      overflow-x: auto;
+      margin-top: 4px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th {
+      text-align: left;
+      padding: 10px 12px;
+      color: var(--text-muted);
+      font-weight: 500;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 12px 12px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+
+    .td-name { font-weight: 500; }
+    .td-domain { color: var(--text-muted); font-size: 12px; }
+
+    .actions { display: flex; gap: 6px; align-items: center; }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 24px;
+    }
+
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      max-width: 760px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: 28px;
+      position: relative;
+      animation: modalIn 0.2s ease;
+    }
+
+    @keyframes modalIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+    .modal-close {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .modal-close:hover { color: var(--text); border-color: var(--accent); }
+
+    .modal-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .modal-domain { color: var(--text-muted); font-size: 13px; margin-bottom: 20px; }
+
+    .modal-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    @media (max-width: 600px) { .modal-grid { grid-template-columns: 1fr; } }
+
+    .field-group { display: flex; flex-direction: column; gap: 4px; }
+    .field-label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .field-value { font-size: 13px; color: var(--text); }
+
+    .field-group.full { grid-column: 1 / -1; }
+
+    .copy-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.6;
+      position: relative;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .copy-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 3px 8px;
+      font-size: 11px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+      margin-top: 4px;
+    }
+
+    .inline-status {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-left: 8px;
+    }
+
+    /* Toast */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 2000;
+    }
+
+    .toast {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      font-size: 13px;
+      max-width: 340px;
+      animation: toastIn 0.25s ease;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    @keyframes toastIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+
+    .toast.success { border-left: 3px solid var(--success); }
+    .toast.error { border-left: 3px solid var(--danger); }
+    .toast.info { border-left: 3px solid var(--info); }
+
+    /* Misc */
+    .empty-state {
+      text-align: center;
+      padding: 48px 24px;
+      color: var(--text-muted);
+    }
+
+    .empty-state-icon { font-size: 40px; margin-bottom: 12px; }
+
+    .divider { border: none; border-top: 1px solid var(--border); margin: 0; }
+
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255,255,255,0.2);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .text-muted { color: var(--text-muted); }
+    .text-success { color: var(--success); }
+    .text-danger { color: var(--danger); }
+    .flex { display: flex; }
+    .gap-2 { gap: 8px; }
+    .items-center { align-items: center; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-title">
+    <span>🔍</span> Company Research Agent
+  </div>
+  <div class="health-indicators">
+    <div class="health-badge">
+      <div class="health-dot" id="ollama-dot"></div>
+      <span id="ollama-label">Ollama</span>
+    </div>
+    <div class="health-badge">
+      <div class="health-dot" id="hubspot-dot"></div>
+      <span id="hubspot-label">HubSpot</span>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- Upload Section -->
+  <div class="card" id="upload-section">
+    <div class="card-header">
+      <div class="card-title">📤 Upload CSV</div>
+    </div>
+    <div class="drop-zone" id="drop-zone">
+      <input type="file" id="csv-input" accept=".csv" />
+      <div class="drop-zone-icon">📋</div>
+      <div class="drop-zone-text">Drop your CSV here, or click to browse</div>
+      <div class="drop-zone-sub">Columns: company_name, description, domain, linkedin_url, location, industry</div>
+    </div>
+    <div class="upload-summary" id="upload-summary">
+      <div class="summary-counts">
+        <div class="summary-count">
+          <span class="count-value green" id="count-new">0</span>
+          New companies queued
+        </div>
+        <div class="summary-count">
+          <span class="count-value yellow" id="count-skipped">0</span>
+          Duplicates skipped
+        </div>
+      </div>
+      <div id="skipped-collapsible" style="display:none">
+        <div class="collapsible-header" onclick="toggleCollapsible(this)">
+          <span>View skipped duplicates</span>
+          <span class="chevron">▾</span>
+        </div>
+        <div class="collapsible-body" id="skipped-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Research Queue Section -->
+  <div class="card" id="research-section">
+    <div class="card-header">
+      <div class="card-title">🧠 Research Queue</div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <span id="pending-count" class="text-muted"></span>
+        <button class="btn-primary" id="start-btn" onclick="startResearch()">Start Research</button>
+      </div>
+    </div>
+
+    <div class="progress-wrap" id="progress-wrap">
+      <div class="progress-label">
+        <span id="progress-text">Processing...</span>
+        <span id="progress-fraction">0 / 0</span>
+      </div>
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill" id="progress-bar"></div>
+      </div>
+      <div class="progress-company" id="progress-company"></div>
+    </div>
+
+    <div class="results-grid" id="results-grid"></div>
+
+    <div id="queue-empty" style="display:none">
+      <div class="empty-state">
+        <div class="empty-state-icon">✅</div>
+        <div>No companies pending research. Upload a CSV to get started.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- History Section -->
+  <div class="card" id="history-section">
+    <div class="card-header">
+      <div class="card-title">📚 Company History</div>
+      <button class="btn-secondary" onclick="pushAll()">🚀 Push All to HubSpot</button>
+    </div>
+
+    <div class="filters">
+      <select class="filter-select" id="filter-fit" onchange="applyFilters()">
+        <option value="">All Fits</option>
+        <option value="Strong">Strong</option>
+        <option value="Moderate">Moderate</option>
+        <option value="Weak">Weak</option>
+      </select>
+      <select class="filter-select" id="filter-research" onchange="applyFilters()">
+        <option value="">All Research Status</option>
+        <option value="completed">Completed</option>
+        <option value="pending">Pending</option>
+        <option value="failed">Failed</option>
+      </select>
+      <select class="filter-select" id="filter-hubspot" onchange="applyFilters()">
+        <option value="">All Sync Status</option>
+        <option value="not_pushed">Not Pushed</option>
+        <option value="pushed">Pushed</option>
+        <option value="failed">Failed</option>
+      </select>
+      <button class="btn-secondary btn-sm" onclick="clearFilters()">Clear</button>
+    </div>
+
+    <div class="table-wrap" style="margin-top:16px">
+      <table id="companies-table">
+        <thead>
+          <tr>
+            <th>Company</th>
+            <th>Industry</th>
+            <th>HubSpot Fit</th>
+            <th>CRM</th>
+            <th>Research</th>
+            <th>Sync</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="companies-tbody"></tbody>
+      </table>
+      <div id="table-empty" class="empty-state" style="display:none">
+        <div class="empty-state-icon">📭</div>
+        <div>No companies yet. Upload a CSV to get started.</div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Company Detail Modal -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModalOnOverlay(event)">
+  <div class="modal" id="modal">
+    <button class="modal-close" onclick="closeModal()">×</button>
+    <div class="modal-title" id="modal-name"></div>
+    <div class="modal-domain" id="modal-domain"></div>
+
+    <div class="modal-grid" id="modal-grid"></div>
+
+    <div style="margin-bottom:16px">
+      <div class="field-label" style="margin-bottom:6px">Business Summary</div>
+      <div class="field-value" id="modal-summary"></div>
+    </div>
+
+    <div style="margin-bottom:16px;position:relative">
+      <div class="field-label" style="margin-bottom:6px">Email Pitch</div>
+      <div class="copy-box" id="modal-email-pitch">
+        <button class="copy-btn" onclick="copyText('modal-email-pitch')">Copy</button>
+      </div>
+    </div>
+
+    <div style="margin-bottom:4px;position:relative">
+      <div class="field-label" style="margin-bottom:6px">LinkedIn Pitch</div>
+      <div class="copy-box" id="modal-linkedin-pitch">
+        <button class="copy-btn" onclick="copyText('modal-linkedin-pitch')">Copy</button>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-primary" id="modal-push-btn" onclick="modalPushToHubspot()">🚀 Push to HubSpot</button>
+      <button class="btn-secondary" id="modal-retry-btn" onclick="modalRetry()" style="display:none">🔄 Retry Research</button>
+      <button class="btn-danger" onclick="modalDelete()">Delete</button>
+      <span class="inline-status" id="modal-push-status"></span>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+  // ─── State ───────────────────────────────────────────────────────────────────
+  let allCompanies = [];
+  let currentModalId = null;
+  let researchRunning = false;
+
+  // ─── Init ─────────────────────────────────────────────────────────────────────
+  async function init() {
+    await Promise.all([checkHealth(), loadCompanies()]);
+    updatePendingCount();
+  }
+
+  // ─── Health check ────────────────────────────────────────────────────────────
+  async function checkHealth() {
+    try {
+      const res = await fetch('/health');
+      const data = await res.json();
+      setHealthDot('ollama', data.ollama);
+      setHealthDot('hubspot', data.hubspot);
+    } catch {
+      setHealthDot('ollama', false);
+      setHealthDot('hubspot', false);
+    }
+  }
+
+  function setHealthDot(service, ok) {
+    const dot = document.getElementById(`${service}-dot`);
+    dot.classList.toggle('ok', ok);
+    dot.classList.toggle('err', !ok);
+  }
+
+  // ─── Load companies ───────────────────────────────────────────────────────────
+  async function loadCompanies() {
+    try {
+      const res = await fetch('/companies');
+      allCompanies = await res.json();
+      renderTable(allCompanies);
+      updatePendingCount();
+    } catch (e) {
+      toast('Failed to load companies', 'error');
+    }
+  }
+
+  function updatePendingCount() {
+    const pending = allCompanies.filter(c => c.research_status === 'pending');
+    const el = document.getElementById('pending-count');
+    el.textContent = pending.length > 0 ? `${pending.length} pending` : '';
+    document.getElementById('start-btn').disabled = pending.length === 0 || researchRunning;
+    const empty = document.getElementById('queue-empty');
+    empty.style.display = pending.length === 0 && document.getElementById('results-grid').children.length === 0 ? 'block' : 'none';
+  }
+
+  // ─── CSV Upload ───────────────────────────────────────────────────────────────
+  const dropZone = document.getElementById('drop-zone');
+  const csvInput = document.getElementById('csv-input');
+
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) uploadCSV(file);
+  });
+  csvInput.addEventListener('change', () => {
+    if (csvInput.files[0]) uploadCSV(csvInput.files[0]);
+  });
+
+  async function uploadCSV(file) {
+    if (!file.name.endsWith('.csv')) { toast('Please upload a CSV file', 'error'); return; }
+    const formData = new FormData();
+    formData.append('csv', file);
+
+    dropZone.querySelector('.drop-zone-text').textContent = 'Uploading...';
+    try {
+      const res = await fetch('/upload', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (!res.ok) { toast(data.error || 'Upload failed', 'error'); return; }
+
+      document.getElementById('count-new').textContent = data.count.new;
+      document.getElementById('count-skipped').textContent = data.count.skipped;
+      document.getElementById('upload-summary').style.display = 'block';
+
+      const skippedCollapsible = document.getElementById('skipped-collapsible');
+      if (data.skippedDuplicates.length > 0) {
+        skippedCollapsible.style.display = 'block';
+        const list = document.getElementById('skipped-list');
+        list.innerHTML = data.skippedDuplicates.map(c => `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)">
+            <div>
+              <span style="font-weight:500">${esc(c.company_name || c.domain)}</span>
+              <span class="text-muted" style="font-size:12px;margin-left:8px">${esc(c.domain)}</span>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              ${fitBadge(c.hubspot_fit)}
+              <button class="btn-secondary btn-sm" onclick="openModal(${c.id})">View</button>
+            </div>
+          </div>
+        `).join('');
+      } else {
+        skippedCollapsible.style.display = 'none';
+      }
+
+      toast(`${data.count.new} companies queued, ${data.count.skipped} skipped`, 'success');
+      await loadCompanies();
+    } catch (e) {
+      toast('Upload failed: ' + e.message, 'error');
+    } finally {
+      dropZone.querySelector('.drop-zone-text').textContent = 'Drop your CSV here, or click to browse';
+      csvInput.value = '';
+    }
+  }
+
+  // ─── Research stream ──────────────────────────────────────────────────────────
+  async function startResearch() {
+    if (researchRunning) return;
+    researchRunning = true;
+    document.getElementById('start-btn').disabled = true;
+    document.getElementById('queue-empty').style.display = 'none';
+
+    const progressWrap = document.getElementById('progress-wrap');
+    progressWrap.style.display = 'block';
+    document.getElementById('progress-bar').style.width = '0%';
+    document.getElementById('results-grid').innerHTML = '';
+
+    const evtSource = new EventSource('/research/stream');
+
+    evtSource.addEventListener('start', e => {
+      const { total } = JSON.parse(e.data);
+      document.getElementById('progress-fraction').textContent = `0 / ${total}`;
+    });
+
+    evtSource.addEventListener('progress', e => {
+      const { current, total, companyName } = JSON.parse(e.data);
+      const pct = Math.round((current - 1) / total * 100);
+      document.getElementById('progress-bar').style.width = pct + '%';
+      document.getElementById('progress-fraction').textContent = `${current} / ${total}`;
+      document.getElementById('progress-text').textContent = 'Researching...';
+      document.getElementById('progress-company').textContent = `🔍 ${companyName}`;
+    });
+
+    evtSource.addEventListener('result', e => {
+      const { id, success, company, error } = JSON.parse(e.data);
+      appendResultCard(company, success, error);
+      // Update in allCompanies
+      const idx = allCompanies.findIndex(c => c.id === id);
+      if (idx >= 0) allCompanies[idx] = company;
+      else allCompanies.unshift(company);
+    });
+
+    evtSource.addEventListener('error', e => {
+      const d = JSON.parse(e.data);
+      toast(d.message, 'error');
+      evtSource.close();
+      finishResearch();
+    });
+
+    evtSource.addEventListener('done', e => {
+      const { total } = JSON.parse(e.data) || {};
+      document.getElementById('progress-bar').style.width = '100%';
+      document.getElementById('progress-text').textContent = 'Done';
+      document.getElementById('progress-company').textContent = '';
+      toast('Research complete!', 'success');
+      evtSource.close();
+      finishResearch();
+    });
+
+    evtSource.onerror = () => {
+      toast('SSE connection error', 'error');
+      evtSource.close();
+      finishResearch();
+    };
+  }
+
+  function finishResearch() {
+    researchRunning = false;
+    renderTable(applyCurrentFilters());
+    updatePendingCount();
+    checkHealth();
+  }
+
+  function appendResultCard(company, success, error) {
+    const grid = document.getElementById('results-grid');
+    const card = document.createElement('div');
+    card.className = `result-card ${success ? 'success' : 'failed'}`;
+    card.innerHTML = success ? `
+      <div class="result-card-header">
+        <div>
+          <div class="result-card-name">${esc(company.company_name || company.domain)}</div>
+          <div class="result-card-domain">${esc(company.domain)}</div>
+        </div>
+        ${fitBadge(company.hubspot_fit)}
+      </div>
+      <div style="font-size:12px;color:var(--text-dim);line-height:1.5;margin-bottom:10px">${esc(company.business_summary || '')}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <span class="badge badge-pending" style="font-size:11px">CRM: ${esc(company.current_crm || '—')}</span>
+        <button class="btn-secondary btn-sm" onclick="openModal(${company.id})">View details</button>
+      </div>
+    ` : `
+      <div class="result-card-header">
+        <div>
+          <div class="result-card-name">${esc(company.company_name || company.domain)}</div>
+          <div class="result-card-domain">${esc(company.domain)}</div>
+        </div>
+        <span class="badge badge-failed">Failed</span>
+      </div>
+      <div style="font-size:12px;color:var(--danger);margin-bottom:10px">${esc(error || 'Unknown error')}</div>
+      <button class="btn-secondary btn-sm" onclick="retryCompany(${company.id})">🔄 Retry</button>
+    `;
+    grid.prepend(card);
+  }
+
+  // ─── Table ────────────────────────────────────────────────────────────────────
+  function renderTable(companies) {
+    const tbody = document.getElementById('companies-tbody');
+    const empty = document.getElementById('table-empty');
+
+    if (!companies || companies.length === 0) {
+      tbody.innerHTML = '';
+      empty.style.display = 'block';
+      return;
+    }
+
+    empty.style.display = 'none';
+    tbody.innerHTML = companies.map(c => `
+      <tr>
+        <td>
+          <div class="td-name">${esc(c.company_name || '—')}</div>
+          <div class="td-domain">${esc(c.domain)}</div>
+        </td>
+        <td class="text-muted">${esc(c.industry || '—')}</td>
+        <td>${fitBadge(c.hubspot_fit)}</td>
+        <td class="text-muted">${esc(c.current_crm || '—')}</td>
+        <td>${researchBadge(c.research_status)}</td>
+        <td>${syncBadge(c.hubspot_sync_status)}</td>
+        <td>
+          <div class="actions">
+            <button class="btn-secondary btn-sm" onclick="openModal(${c.id})">View</button>
+            ${c.research_status === 'completed' && c.hubspot_sync_status !== 'pushed'
+              ? `<button class="btn-secondary btn-sm" onclick="pushCompany(${c.id}, this)">Push</button>`
+              : ''}
+            ${c.research_status === 'failed'
+              ? `<button class="btn-secondary btn-sm" onclick="retryCompany(${c.id})">Retry</button>`
+              : ''}
+            <button class="btn-danger btn-sm" onclick="deleteCompany(${c.id})">Delete</button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  // ─── Filters ──────────────────────────────────────────────────────────────────
+  function applyFilters() {
+    renderTable(applyCurrentFilters());
+  }
+
+  function applyCurrentFilters() {
+    const fit = document.getElementById('filter-fit').value;
+    const research = document.getElementById('filter-research').value;
+    const hubspot = document.getElementById('filter-hubspot').value;
+    return allCompanies.filter(c =>
+      (!fit || c.hubspot_fit === fit) &&
+      (!research || c.research_status === research) &&
+      (!hubspot || c.hubspot_sync_status === hubspot)
+    );
+  }
+
+  function clearFilters() {
+    ['filter-fit','filter-research','filter-hubspot'].forEach(id => document.getElementById(id).value = '');
+    renderTable(allCompanies);
+  }
+
+  // ─── Actions ──────────────────────────────────────────────────────────────────
+  async function deleteCompany(id) {
+    if (!confirm('Delete this company from history?')) return;
+    try {
+      await fetch(`/companies/${id}`, { method: 'DELETE' });
+      allCompanies = allCompanies.filter(c => c.id !== id);
+      renderTable(applyCurrentFilters());
+      updatePendingCount();
+      toast('Company deleted', 'info');
+    } catch (e) {
+      toast('Delete failed: ' + e.message, 'error');
+    }
+  }
+
+  async function retryCompany(id) {
+    try {
+      const res = await fetch(`/companies/${id}/retry`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      const idx = allCompanies.findIndex(c => c.id === id);
+      if (idx >= 0) allCompanies[idx] = data.company;
+      renderTable(applyCurrentFilters());
+      updatePendingCount();
+      toast('Company reset to pending. Click "Start Research" to run.', 'info');
+    } catch (e) {
+      toast('Retry failed: ' + e.message, 'error');
+    }
+  }
+
+  async function pushCompany(id, btn) {
+    if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+    try {
+      const res = await fetch(`/hubspot/push/${id}`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      const idx = allCompanies.findIndex(c => c.id === id);
+      if (idx >= 0) allCompanies[idx] = data.company;
+      renderTable(applyCurrentFilters());
+      toast('Pushed to HubSpot ✓', 'success');
+      checkHealth();
+    } catch (e) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Push'; }
+      toast('HubSpot push failed: ' + e.message, 'error');
+    }
+  }
+
+  async function pushAll() {
+    const eligible = allCompanies.filter(c => c.research_status === 'completed' && c.hubspot_sync_status === 'not_pushed');
+    if (eligible.length === 0) { toast('No completed companies to push', 'info'); return; }
+    if (!confirm(`Push ${eligible.length} companies to HubSpot?`)) return;
+
+    toast(`Pushing ${eligible.length} companies...`, 'info');
+    try {
+      const res = await fetch('/hubspot/push-all', { method: 'POST' });
+      const data = await res.json();
+      toast(`Pushed ${data.pushed}, failed ${data.failed}`, data.failed > 0 ? 'error' : 'success');
+      await loadCompanies();
+    } catch (e) {
+      toast('Push-all failed: ' + e.message, 'error');
+    }
+  }
+
+  // ─── Modal ────────────────────────────────────────────────────────────────────
+  function openModal(id) {
+    const company = allCompanies.find(c => c.id === id);
+    if (!company) return;
+    currentModalId = id;
+
+    document.getElementById('modal-name').textContent = company.company_name || company.domain;
+    document.getElementById('modal-domain').innerHTML = `
+      <a href="https://${esc(company.domain)}" target="_blank" rel="noopener" style="color:var(--accent)">${esc(company.domain)}</a>
+      ${company.linkedin_url ? `&nbsp;·&nbsp;<a href="${esc(company.linkedin_url)}" target="_blank" rel="noopener" style="color:var(--accent)">LinkedIn</a>` : ''}
+    `;
+
+    const grid = document.getElementById('modal-grid');
+    grid.innerHTML = `
+      <div class="field-group">
+        <div class="field-label">Industry</div>
+        <div class="field-value">${esc(company.industry || '—')}</div>
+      </div>
+      <div class="field-group">
+        <div class="field-label">Location</div>
+        <div class="field-value">${esc(company.location || '—')}</div>
+      </div>
+      <div class="field-group">
+        <div class="field-label">Operating Status</div>
+        <div class="field-value">${esc(company.operating_status || '—')}</div>
+      </div>
+      <div class="field-group">
+        <div class="field-label">HubSpot Fit</div>
+        <div class="field-value">${fitBadge(company.hubspot_fit)}</div>
+      </div>
+      <div class="field-group">
+        <div class="field-label">Current CRM</div>
+        <div class="field-value">${esc(company.current_crm || '—')}</div>
+      </div>
+      <div class="field-group">
+        <div class="field-label">Marketing Tools</div>
+        <div class="field-value">${esc(company.current_marketing_tools || '—')}</div>
+      </div>
+      <div class="field-group full">
+        <div class="field-label">Fit Reason</div>
+        <div class="field-value">${esc(company.fit_reason || '—')}</div>
+      </div>
+    `;
+
+    document.getElementById('modal-summary').textContent = company.business_summary || '—';
+
+    const emailBox = document.getElementById('modal-email-pitch');
+    emailBox.innerHTML = `<button class="copy-btn" onclick="copyText('modal-email-pitch')">Copy</button>${esc(company.email_pitch || '—')}`;
+
+    const liBox = document.getElementById('modal-linkedin-pitch');
+    liBox.innerHTML = `<button class="copy-btn" onclick="copyText('modal-linkedin-pitch')">Copy</button>${esc(company.linkedin_pitch || '—')}`;
+
+    const pushBtn = document.getElementById('modal-push-btn');
+    const retryBtn = document.getElementById('modal-retry-btn');
+    const pushStatus = document.getElementById('modal-push-status');
+
+    pushBtn.style.display = company.research_status === 'completed' ? '' : 'none';
+    pushBtn.disabled = company.hubspot_sync_status === 'pushed';
+    pushBtn.textContent = company.hubspot_sync_status === 'pushed' ? '✓ Already in HubSpot' : '🚀 Push to HubSpot';
+
+    retryBtn.style.display = company.research_status === 'failed' ? '' : 'none';
+    pushStatus.textContent = company.hubspot_sync_status === 'pushed' ? `HubSpot ID: ${company.hubspot_company_id}` : '';
+
+    document.getElementById('modal-overlay').classList.add('open');
+  }
+
+  function closeModal() {
+    document.getElementById('modal-overlay').classList.remove('open');
+    currentModalId = null;
+  }
+
+  function closeModalOnOverlay(e) {
+    if (e.target === document.getElementById('modal-overlay')) closeModal();
+  }
+
+  async function modalPushToHubspot() {
+    if (!currentModalId) return;
+    const btn = document.getElementById('modal-push-btn');
+    const status = document.getElementById('modal-push-status');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Pushing...';
+    status.textContent = '';
+
+    try {
+      const res = await fetch(`/hubspot/push/${currentModalId}`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      const idx = allCompanies.findIndex(c => c.id === currentModalId);
+      if (idx >= 0) allCompanies[idx] = data.company;
+
+      btn.textContent = '✓ Already in HubSpot';
+      status.textContent = `HubSpot ID: ${data.hubspotId}`;
+      renderTable(applyCurrentFilters());
+      toast('Pushed to HubSpot ✓', 'success');
+    } catch (e) {
+      btn.disabled = false;
+      btn.textContent = '🚀 Push to HubSpot';
+      status.textContent = '';
+      toast('Push failed: ' + e.message, 'error');
+    }
+  }
+
+  async function modalRetry() {
+    if (!currentModalId) return;
+    await retryCompany(currentModalId);
+    closeModal();
+  }
+
+  async function modalDelete() {
+    if (!currentModalId) return;
+    if (!confirm('Delete this company from history?')) return;
+    await deleteCompany(currentModalId);
+    closeModal();
+  }
+
+  // ─── Helpers ──────────────────────────────────────────────────────────────────
+  function esc(str) {
+    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function fitBadge(fit) {
+    if (!fit) return '<span class="badge badge-pending">—</span>';
+    const cls = fit === 'Strong' ? 'badge-strong' : fit === 'Moderate' ? 'badge-moderate' : 'badge-weak';
+    return `<span class="badge ${cls}">${esc(fit)}</span>`;
+  }
+
+  function researchBadge(status) {
+    if (status === 'completed') return '<span class="badge badge-completed">Completed</span>';
+    if (status === 'failed') return '<span class="badge badge-failed">Failed</span>';
+    return '<span class="badge badge-pending">Pending</span>';
+  }
+
+  function syncBadge(status) {
+    if (status === 'pushed') return '<span class="badge badge-pushed">Pushed</span>';
+    if (status === 'failed') return '<span class="badge badge-failed">Failed</span>';
+    return '<span class="badge badge-not-pushed">Not pushed</span>';
+  }
+
+  function toggleCollapsible(header) {
+    const body = header.nextElementSibling;
+    const chevron = header.querySelector('.chevron');
+    body.classList.toggle('open');
+    chevron.classList.toggle('open');
+  }
+
+  function copyText(elementId) {
+    const el = document.getElementById(elementId);
+    const text = el.innerText.replace(/^Copy\n?/, '').trim();
+    navigator.clipboard.writeText(text).then(() => toast('Copied!', 'success'));
+  }
+
+  function toast(message, type = 'info') {
+    const container = document.getElementById('toast-container');
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.innerHTML = `<span style="font-size:15px">${type === 'success' ? '✓' : type === 'error' ? '✗' : 'ℹ'}</span><span>${esc(message)}</span>`;
+    container.appendChild(el);
+    setTimeout(() => el.remove(), 4000);
+  }
+
+  // Keyboard: close modal on Escape
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+  init();
+</script>
+
+</body>
+</html>
