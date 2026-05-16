@@ -618,6 +618,7 @@
       <div class="card-title">🧠 Research Queue</div>
       <div style="display:flex;gap:10px;align-items:center">
         <span id="pending-count" class="text-muted"></span>
+        <button class="btn-secondary" id="pause-btn" onclick="togglePause()" style="display:none">⏸ Pause</button>
         <button class="btn-primary" id="start-btn" onclick="startResearch()">Start Research</button>
       </div>
     </div>
@@ -749,6 +750,24 @@
   let allCompanies = [];
   let currentModalId = null;
   let researchRunning = false;
+  let isPaused = false;
+
+  async function togglePause() {
+    const btn = document.getElementById('pause-btn');
+    if (!isPaused) {
+      await fetch('/research/pause', { method: 'POST' });
+      isPaused = true;
+      btn.textContent = '▶ Resume';
+      btn.classList.replace('btn-secondary', 'btn-primary');
+      document.getElementById('progress-text').textContent = 'Paused — will stop after current company';
+    } else {
+      await fetch('/research/resume', { method: 'POST' });
+      isPaused = false;
+      btn.textContent = '⏸ Pause';
+      btn.classList.replace('btn-primary', 'btn-secondary');
+      document.getElementById('progress-text').textContent = 'Resuming...';
+    }
+  }
 
   // ─── Init ─────────────────────────────────────────────────────────────────────
   async function init() {
@@ -861,8 +880,15 @@
   async function startResearch() {
     if (researchRunning) return;
     researchRunning = true;
+    isPaused = false;
     document.getElementById('start-btn').disabled = true;
     document.getElementById('queue-empty').style.display = 'none';
+
+    const pauseBtn = document.getElementById('pause-btn');
+    pauseBtn.style.display = '';
+    pauseBtn.textContent = '⏸ Pause';
+    pauseBtn.classList.add('btn-secondary');
+    pauseBtn.classList.remove('btn-primary');
 
     const progressWrap = document.getElementById('progress-wrap');
     progressWrap.style.display = 'block';
@@ -901,8 +927,17 @@
       finishResearch();
     });
 
+    evtSource.addEventListener('paused', () => {
+      document.getElementById('progress-text').textContent = 'Paused';
+      document.getElementById('progress-company').textContent = 'Waiting to resume after current company finishes...';
+    });
+
+    evtSource.addEventListener('resumed', () => {
+      document.getElementById('progress-text').textContent = 'Researching...';
+      document.getElementById('progress-company').textContent = '';
+    });
+
     evtSource.addEventListener('done', e => {
-      const { total } = JSON.parse(e.data) || {};
       document.getElementById('progress-bar').style.width = '100%';
       document.getElementById('progress-text').textContent = 'Done';
       document.getElementById('progress-company').textContent = '';
@@ -920,6 +955,8 @@
 
   function finishResearch() {
     researchRunning = false;
+    isPaused = false;
+    document.getElementById('pause-btn').style.display = 'none';
     renderTable(applyCurrentFilters());
     updatePendingCount();
     checkHealth();

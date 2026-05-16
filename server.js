@@ -8,6 +8,27 @@ const { researchCompany, checkOllamaHealth } = require('./ollama');
 const { pushToHubspot, checkHubspotHealth } = require('./hubspot');
 
 const app = express();
+
+// ─── Pause/resume state ───────────────────────────────────────────────────────
+let paused = false;
+let resumeResolve = null;
+
+function waitIfPaused(send) {
+  if (!paused) return Promise.resolve();
+  send('paused', {});
+  return new Promise(resolve => { resumeResolve = resolve; });
+}
+
+app.post('/research/pause', (req, res) => {
+  paused = true;
+  res.json({ paused: true });
+});
+
+app.post('/research/resume', (req, res) => {
+  paused = false;
+  if (resumeResolve) { resumeResolve(); resumeResolve = null; }
+  res.json({ paused: false });
+});
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 app.use(express.json());
@@ -99,10 +120,15 @@ app.get('/research/stream', async (req, res) => {
   }
 
   send('start', { total: pending.length });
+  paused = false; // always start fresh
 
   for (let i = 0; i < pending.length; i++) {
     const company = pending[i];
     if (res.writableEnded) break;
+
+    await waitIfPaused(send);
+    if (res.writableEnded) break;
+    send('resumed', {});
 
     send('progress', {
       current: i + 1,

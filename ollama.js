@@ -24,63 +24,68 @@ async function resolveModel() {
 }
 
 function buildPrompt(company, scraped) {
-  // Definitive tech stack from HTML scanning — tell model these are confirmed, not guesses
   const confirmedCrm = scraped.detectedCrm.length > 0
-    ? `CONFIRMED from website HTML: ${scraped.detectedCrm.join(', ')} — use this, do not guess`
-    : 'Not detected in page source — infer from company type/size/industry';
+    ? `CONFIRMED from live HTML scan: ${scraped.detectedCrm.join(', ')} — treat as fact, do not change`
+    : 'Not detected — infer from company profile';
   const confirmedMarketing = scraped.detectedMarketing.length > 0
-    ? `CONFIRMED from website HTML: ${scraped.detectedMarketing.join(', ')} — use this, do not guess`
-    : 'Not detected in page source — infer from company type/size/industry';
+    ? `CONFIRMED from live HTML scan: ${scraped.detectedMarketing.join(', ')} — treat as fact, do not change`
+    : 'Not detected — infer from company profile';
   const allDetected = [...new Set([...scraped.detectedCrm, ...scraped.detectedMarketing])];
-  const fullStackNote = allDetected.length > 0
-    ? `Full detected stack (all tools found in page source): ${allDetected.join(', ')}`
-    : 'No tools detected in page source.';
+  const stackSummary = allDetected.length > 0
+    ? `Full confirmed stack: ${allDetected.join(', ')}`
+    : 'No tools confirmed from page source.';
 
   const websiteSection = scraped.scraped ? `
-LIVE WEBSITE DATA (scraped from ${scraped.url}):
-- Page title: ${scraped.title || 'N/A'}
-- Meta description: ${scraped.description || 'N/A'}
-- Key headings on site: ${scraped.headings.join(' | ') || 'N/A'}
-- Website text (first 2000 chars): ${scraped.bodyText || 'N/A'}
-` : `
-WEBSITE DATA: Could not be scraped — rely on the company info below.
-`;
+LIVE WEBSITE DATA (fetched from ${scraped.url}):
+Title: ${scraped.title || 'N/A'}
+Meta description: ${scraped.description || 'N/A'}
+Headings found: ${scraped.headings.join(' | ') || 'N/A'}
+Page content snippet: ${scraped.bodyText || 'N/A'}
+` : `WEBSITE: Could not be fetched — work from company data only.`;
 
-  return `You are a senior HubSpot RevOps consultant doing pre-sales research on a prospect. Your goal is to produce highly personalised, insight-driven research that a sales rep can use immediately.
+  return `You are playing two expert roles simultaneously. Think hard in each role — do not produce generic output.
 
-COMPANY INFO:
-- Name: ${company.company_name || 'Unknown'}
-- Description: ${company.description || 'Not provided'}
-- Domain: ${company.domain}
-- LinkedIn: ${company.linkedin_url || 'Not provided'}
-- Location: ${company.location || 'Not provided'}
-- Industry: ${company.industry || 'Not provided'}
+━━━ ROLE 1: RevOps / CRO Analyst (15+ years, VP level) ━━━
+Your job: assess whether HubSpot is a genuine fit for this prospect — not a sales pitch, an honest evaluation.
+Think about: What is their business model? What stage are they at? What does their current stack tell you about their maturity? Where are the likely RevOps gaps — pipeline visibility, lead routing, reporting, marketing-sales alignment? Would HubSpot's Sales Hub, Marketing Hub, or Service Hub actually move the needle, or are they already well-served? Are there real switching costs or roadblocks (e.g. deep Salesforce customisation, enterprise procurement, small team that doesn't need a CRM)?
+Be direct and specific. Reference what you can see on their site.
+
+━━━ ROLE 2: Cold Outreach Specialist (10+ years in sales) ━━━
+Your job: write outreach that doesn't feel like outreach. You are not pitching software — you are starting a conversation with a smart, busy executive who deletes 40 emails a day.
+Rules:
+- NEVER open with "I hope this finds you well", "I came across your company", "I wanted to reach out", or anything that sounds like a template
+- The first line must be a pattern interrupt — a sharp observation about their business, a provocative question, or a specific detail that signals you've actually looked at their site
+- Show one piece of genuine research in every message — something specific from their website, their positioning, their current tools, or their market
+- The value prop must feel like a natural consequence of the insight, not a product pitch
+- Short, punchy, confident — write like someone who doesn't need the deal
+
+━━━ COMPANY DATA ━━━
+Name: ${company.company_name || 'Unknown'}
+Description: ${company.description || 'Not provided'}
+Domain: ${company.domain}
+LinkedIn: ${company.linkedin_url || 'Not provided'}
+Location: ${company.location || 'Not provided'}
+Industry: ${company.industry || 'Not provided'}
+
 ${websiteSection}
-TECH STACK DETECTION:
-- CRM: ${confirmedCrm}
-- Marketing tools: ${confirmedMarketing}
-- ${fullStackNote}
 
-INSTRUCTIONS:
-- For current_crm and current_marketing_tools: if marked CONFIRMED, use that exact value. Do not override confirmed detections.
-- If multiple tools are confirmed, list them all (comma-separated) in the relevant field.
-- For business_summary: describe what the company actually does based on the website content above — be specific, not generic.
-- For hubspot_fit: assess based on their size, industry, current tools, and operational complexity visible on the site.
-- For fit_reason: reference something specific about this company — their current tools, their apparent sales process, their team size, or their market — explain concretely why HubSpot would or wouldn't move the needle for them.
-- For email_pitch: reference something real and specific from their website (a service they offer, their positioning, a pain point implied by their current stack). Include a concrete HubSpot value prop relevant to their situation. Do NOT write generic lines like "I noticed you're in the X industry".
-- For linkedin_pitch: casual and specific — reference something concrete about them. One hook, conversational tone.
+TECH STACK (from live HTML scan — treat as confirmed):
+CRM: ${confirmedCrm}
+Marketing: ${confirmedMarketing}
+${stackSummary}
 
-Return ONLY a valid JSON object. No markdown, no backticks, no explanation, nothing before or after the JSON.
+━━━ OUTPUT INSTRUCTIONS ━━━
+Return ONLY a valid JSON object. No markdown, no backticks, no explanation, nothing before or after.
 
 {
   "operating_status": "Active" or "Likely Active" or "Unclear",
-  "current_crm": "HubSpot" or "Salesforce" or "Pipedrive" or "Zoho" or "None detected" or "Unknown",
-  "current_marketing_tools": "HubSpot" or "Mailchimp" or "ActiveCampaign" or "Klaviyo" or "Marketo" or "None detected" or "Unknown",
-  "business_summary": "2 specific sentences on what they do and who they serve — reference actual services/products from the website",
+  "current_crm": exact tool name(s) if confirmed, else your best inference — list all detected, comma-separated,
+  "current_marketing_tools": exact tool name(s) if confirmed, else best inference — list all detected,
+  "business_summary": "2 specific sentences describing exactly what they do and who they serve — pull from the actual website content, not generic industry descriptions",
   "hubspot_fit": "Strong" or "Moderate" or "Weak",
-  "fit_reason": "One specific sentence referencing their actual situation — tools, team, or market",
-  "email_pitch": "2-3 sentences. Reference something real from their website. Explain a specific HubSpot value prop for their situation. No generic openers.",
-  "linkedin_pitch": "1-2 sentences. Specific and conversational. Reference something concrete about them."
+  "fit_reason": "2-3 sentences from the CRO perspective: what specific gap does HubSpot fill for this company, what product(s) are relevant, and what is the honest roadblock or risk if any",
+  "email_pitch": "3 sentences max. Sentence 1: pattern interrupt or sharp observation about something specific on their site or in their stack. Sentence 2: insight or implied pain point — connect their situation to a consequence they care about. Sentence 3: soft CTA or value prop that feels like help, not a pitch. No filler.",
+  "linkedin_pitch": "2 sentences. Sentence 1: specific observation about them that shows real research — reference their product, positioning, or a detail from their site. Sentence 2: one question or hook that creates curiosity. Casual, human, zero jargon."
 }`;
 }
 
