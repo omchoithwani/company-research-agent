@@ -151,12 +151,19 @@ app.delete('/companies/:id', (req, res) => {
   res.json({ success: true });
 });
 
-// POST /companies/:id/retry
+// POST /companies/:id/retry — reset any company back to pending
 app.post('/companies/:id/retry', (req, res) => {
   const company = db.getCompanyById(req.params.id);
   if (!company) return res.status(404).json({ error: 'Not found' });
   db.updateCompanyStatus(company.id, 'pending');
   res.json({ success: true, company: db.getCompanyById(company.id) });
+});
+
+// POST /companies/retry-all — reset all completed companies to pending
+app.post('/companies/retry-all', (req, res) => {
+  const companies = db.getAllCompanies().filter(c => c.research_status === 'completed');
+  for (const c of companies) db.updateCompanyStatus(c.id, 'pending');
+  res.json({ success: true, count: companies.length });
 });
 
 // POST /hubspot/push/:id

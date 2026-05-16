@@ -647,7 +647,10 @@
   <div class="card" id="history-section">
     <div class="card-header">
       <div class="card-title">📚 Company History</div>
-      <button class="btn-secondary" onclick="pushAll()">🚀 Push All to HubSpot</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn-secondary" onclick="reresearchAll()" title="Re-run research on all completed companies with the latest scraper">🔄 Re-research All</button>
+        <button class="btn-secondary" onclick="pushAll()">🚀 Push All to HubSpot</button>
+      </div>
     </div>
 
     <div class="filters">
@@ -984,13 +987,16 @@
         <td>
           <div class="actions">
             <button class="btn-secondary btn-sm" onclick="openModal(${c.id})">View</button>
-            ${c.research_status === 'completed' && c.hubspot_sync_status !== 'pushed'
-              ? `<button class="btn-secondary btn-sm" onclick="pushCompany(${c.id}, this)">Push</button>`
+            ${c.research_status === 'completed'
+              ? `<button class="btn-secondary btn-sm" onclick="pushCompany(${c.id}, this)" ${c.hubspot_sync_status === 'pushed' ? 'title="Already pushed — click to re-push"' : ''}>${c.hubspot_sync_status === 'pushed' ? '↑ Re-push' : '🚀 Push'}</button>`
               : ''}
-            ${c.research_status === 'failed'
-              ? `<button class="btn-secondary btn-sm" onclick="retryCompany(${c.id})">Retry</button>`
+            ${c.research_status === 'completed'
+              ? `<button class="btn-secondary btn-sm" onclick="retryCompany(${c.id})" title="Re-run research with latest scraper">🔄</button>`
               : ''}
-            <button class="btn-danger btn-sm" onclick="deleteCompany(${c.id})">Delete</button>
+            ${c.research_status === 'failed' || c.research_status === 'pending'
+              ? `<button class="btn-secondary btn-sm" onclick="retryCompany(${c.id})">${c.research_status === 'failed' ? '🔄 Retry' : '⏳ Pending'}</button>`
+              : ''}
+            <button class="btn-danger btn-sm" onclick="deleteCompany(${c.id})">✕</button>
           </div>
         </td>
       </tr>
@@ -1061,6 +1067,21 @@
     } catch (e) {
       if (btn) { btn.disabled = false; btn.textContent = 'Push'; }
       toast('HubSpot push failed: ' + e.message, 'error');
+    }
+  }
+
+  async function reresearchAll() {
+    const completed = allCompanies.filter(c => c.research_status === 'completed');
+    if (completed.length === 0) { toast('No completed companies to re-research', 'info'); return; }
+    if (!confirm(`Reset ${completed.length} completed companies to pending and re-run research with the latest scraper?`)) return;
+    try {
+      const res = await fetch('/companies/retry-all', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      toast(`${data.count} companies reset to pending — click Start Research to run`, 'success');
+      await loadCompanies();
+    } catch (e) {
+      toast('Failed: ' + e.message, 'error');
     }
   }
 
