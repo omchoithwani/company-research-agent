@@ -1,7 +1,7 @@
-const Database = require('better-sqlite3');
+const { DatabaseSync } = require('node:sqlite');
 const path = require('path');
 
-const db = new Database(path.join(__dirname, 'companies.db'));
+const db = new DatabaseSync(path.join(__dirname, 'companies.db'));
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS companies (
@@ -31,7 +31,7 @@ db.exec(`
 const stmts = {
   insert: db.prepare(`
     INSERT INTO companies (domain, company_name, description, linkedin_url, location, industry)
-    VALUES (@domain, @company_name, @description, @linkedin_url, @location, @industry)
+    VALUES (:domain, :company_name, :description, :linkedin_url, :location, :industry)
   `),
   byDomain: db.prepare('SELECT * FROM companies WHERE domain = ?'),
   byId: db.prepare('SELECT * FROM companies WHERE id = ?'),
@@ -40,17 +40,17 @@ const stmts = {
   completedNotPushed: db.prepare("SELECT * FROM companies WHERE research_status = 'completed' AND hubspot_sync_status = 'not_pushed' ORDER BY created_at ASC"),
   updateResearch: db.prepare(`
     UPDATE companies SET
-      operating_status = @operating_status,
-      current_crm = @current_crm,
-      current_marketing_tools = @current_marketing_tools,
-      business_summary = @business_summary,
-      hubspot_fit = @hubspot_fit,
-      fit_reason = @fit_reason,
-      email_pitch = @email_pitch,
-      linkedin_pitch = @linkedin_pitch,
+      operating_status = :operating_status,
+      current_crm = :current_crm,
+      current_marketing_tools = :current_marketing_tools,
+      business_summary = :business_summary,
+      hubspot_fit = :hubspot_fit,
+      fit_reason = :fit_reason,
+      email_pitch = :email_pitch,
+      linkedin_pitch = :linkedin_pitch,
       research_status = 'completed',
       updated_at = CURRENT_TIMESTAMP
-    WHERE id = @id
+    WHERE id = :id
   `),
   updateStatus: db.prepare("UPDATE companies SET research_status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"),
   updateHubspot: db.prepare("UPDATE companies SET hubspot_sync_status = ?, hubspot_company_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"),
