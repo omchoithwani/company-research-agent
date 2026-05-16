@@ -26,11 +26,15 @@ async function resolveModel() {
 function buildPrompt(company, scraped) {
   // Definitive tech stack from HTML scanning — tell model these are confirmed, not guesses
   const confirmedCrm = scraped.detectedCrm.length > 0
-    ? `CONFIRMED from website HTML: ${scraped.detectedCrm.join(', ')}`
-    : 'Not detected in HTML — use your best guess based on company type/size';
+    ? `CONFIRMED from website HTML: ${scraped.detectedCrm.join(', ')} — use this, do not guess`
+    : 'Not detected in page source — infer from company type/size/industry';
   const confirmedMarketing = scraped.detectedMarketing.length > 0
-    ? `CONFIRMED from website HTML: ${scraped.detectedMarketing.join(', ')}`
-    : 'Not detected in HTML — use your best guess based on company type/size';
+    ? `CONFIRMED from website HTML: ${scraped.detectedMarketing.join(', ')} — use this, do not guess`
+    : 'Not detected in page source — infer from company type/size/industry';
+  const allDetected = [...new Set([...scraped.detectedCrm, ...scraped.detectedMarketing])];
+  const fullStackNote = allDetected.length > 0
+    ? `Full detected stack (all tools found in page source): ${allDetected.join(', ')}`
+    : 'No tools detected in page source.';
 
   const websiteSection = scraped.scraped ? `
 LIVE WEBSITE DATA (scraped from ${scraped.url}):
@@ -55,9 +59,11 @@ ${websiteSection}
 TECH STACK DETECTION:
 - CRM: ${confirmedCrm}
 - Marketing tools: ${confirmedMarketing}
+- ${fullStackNote}
 
 INSTRUCTIONS:
 - For current_crm and current_marketing_tools: if marked CONFIRMED, use that exact value. Do not override confirmed detections.
+- If multiple tools are confirmed, list them all (comma-separated) in the relevant field.
 - For business_summary: describe what the company actually does based on the website content above — be specific, not generic.
 - For hubspot_fit: assess based on their size, industry, current tools, and operational complexity visible on the site.
 - For fit_reason: reference something specific about this company — their current tools, their apparent sales process, their team size, or their market — explain concretely why HubSpot would or wouldn't move the needle for them.
