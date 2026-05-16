@@ -120,6 +120,11 @@ app.get('/research/stream', async (req, res) => {
       db.failCompany(company.id, e.message);
       send('result', { id: company.id, success: false, error: e.message, company: db.getCompanyById(company.id) });
     }
+
+    // Brief pause between companies to let the system breathe
+    if (i < pending.length - 1 && !res.writableEnded) {
+      await new Promise(r => setTimeout(r, 2000));
+    }
   }
 
   send('done', { message: 'Research complete' });
