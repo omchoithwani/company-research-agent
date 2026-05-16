@@ -1,7 +1,6 @@
 const OLLAMA_HOST = process.env.OLLAMA_HOST || 'http://localhost:11434';
 const CONFIGURED_MODEL = process.env.OLLAMA_MODEL || 'llama3.1:70b';
-const FALLBACK_MODEL = 'llama3.1:8b';
-const TIMEOUT_MS = 60000;
+const TIMEOUT_MS = 120000; // 2 min — 70b can be slow on first token
 
 let cachedModel = null;
 
@@ -22,6 +21,7 @@ async function resolveModel() {
   } catch {
     cachedModel = CONFIGURED_MODEL;
   }
+  console.log(`[Ollama] Using model: ${cachedModel}`);
   return cachedModel;
 }
 
@@ -50,22 +50,47 @@ Return ONLY a valid JSON object. No markdown, no backticks, no explanation, no e
 }`;
 }
 
-async function attemptResearch(model, prompt) {
+function extractJson(text) {
+  // Strip markdown code fences if present (```json ... ``` or ``` ... ```)
+  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenceMatch) text = fenceMatch[1].trim();
+
+  // Find the outermost JSON object
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  if (start === -1 || end === -1 || end < start) {
+    throw new Error(`No JSON object found in model response. Got: ${text.slice(0, 200)}`);
+  }
+  const jsonStr = text.slice(start, end + 1);
+  try {
+    return JSON.parse(jsonStr);
+  } catch (e) {
+    throw new Error(`JSON parse failed: ${e.message}. Raw: ${jsonStr.slice(0, 200)}`);
+  }
+}
+
+async function attemptResearch(model, prompt, company) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
+    console.log(`[Ollama] Researching: ${company.company_name || company.domain}`);
     const response = await fetch(`${OLLAMA_HOST}/api/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ model, prompt, stream: false }),
       signal: controller.signal,
     });
-    if (!response.ok) throw new Error(`Ollama returned HTTP ${response.status}`);
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`Ollama HTTP ${response.status}: ${body}`);
+    }
     const data = await response.json();
     const text = (data.response || '').trim();
-    const match = text.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error('No JSON object found in response');
-    return JSON.parse(match[0]);
+    console.log(`[Ollama] Raw response for ${company.domain}:\n${text.slice(0, 500)}`);
+    return extractJson(text);
+  } catch (e) {
+    if (e.name === 'AbortError') throw new Error('Timed out after 2 minutes waiting for Ollama');
+    throw e;
   } finally {
     clearTimeout(timer);
   }
@@ -75,10 +100,10 @@ async function researchCompany(company) {
   const model = await resolveModel();
   const prompt = buildPrompt(company);
   try {
-    return await attemptResearch(model, prompt);
-  } catch {
-    // single retry
-    return await attemptResearch(model, prompt);
+    return await attemptResearch(model, prompt, company);
+  } catch (e) {
+    console.warn(`[Ollama] First attempt failed for ${company.domain}: ${e.message}. Retrying...`);
+    return await attemptResearch(model, prompt, company);
   }
 }
 

@@ -116,7 +116,8 @@ app.get('/research/stream', async (req, res) => {
       db.updateCompanyResearch(company.id, result);
       send('result', { id: company.id, success: true, company: db.getCompanyById(company.id) });
     } catch (e) {
-      db.updateCompanyStatus(company.id, 'failed');
+      console.error(`[Research] FAILED for ${company.domain}: ${e.message}`);
+      db.failCompany(company.id, e.message);
       send('result', { id: company.id, success: false, error: e.message, company: db.getCompanyById(company.id) });
     }
   }

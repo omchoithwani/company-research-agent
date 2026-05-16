@@ -23,10 +23,14 @@ db.exec(`
     research_status TEXT DEFAULT 'pending',
     hubspot_sync_status TEXT DEFAULT 'not_pushed',
     hubspot_company_id TEXT,
+    error_message TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 `);
+
+// Add error_message column to existing databases that don't have it yet
+try { db.exec(`ALTER TABLE companies ADD COLUMN error_message TEXT`); } catch { /* column already exists */ }
 
 const stmts = {
   insert: db.prepare(`
@@ -52,7 +56,8 @@ const stmts = {
       updated_at = CURRENT_TIMESTAMP
     WHERE id = :id
   `),
-  updateStatus: db.prepare("UPDATE companies SET research_status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"),
+  updateStatus: db.prepare("UPDATE companies SET research_status = ?, error_message = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?"),
+  updateFailed: db.prepare("UPDATE companies SET research_status = 'failed', error_message = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"),
   updateHubspot: db.prepare("UPDATE companies SET hubspot_sync_status = ?, hubspot_company_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"),
   delete: db.prepare('DELETE FROM companies WHERE id = ?'),
 };
@@ -81,6 +86,9 @@ module.exports = {
   },
   updateCompanyStatus(id, status) {
     stmts.updateStatus.run(status, id);
+  },
+  failCompany(id, errorMessage) {
+    stmts.updateFailed.run(errorMessage, id);
   },
   updateHubspotSync(id, status, hubspotId = null) {
     stmts.updateHubspot.run(status, hubspotId, id);

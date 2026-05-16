@@ -705,6 +705,11 @@
 
     <div class="modal-grid" id="modal-grid"></div>
 
+    <div id="modal-error-box" style="display:none;margin-bottom:16px;padding:12px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);border-radius:6px;">
+      <div class="field-label" style="color:var(--danger);margin-bottom:6px">Research Error</div>
+      <div id="modal-error-text" style="font-size:13px;color:var(--danger);font-family:monospace;white-space:pre-wrap;word-break:break-all;"></div>
+    </div>
+
     <div style="margin-bottom:16px">
       <div class="field-label" style="margin-bottom:6px">Business Summary</div>
       <div class="field-value" id="modal-summary"></div>
@@ -969,7 +974,12 @@
         <td class="text-muted">${esc(c.industry || '—')}</td>
         <td>${fitBadge(c.hubspot_fit)}</td>
         <td class="text-muted">${esc(c.current_crm || '—')}</td>
-        <td>${researchBadge(c.research_status)}</td>
+        <td>
+          ${researchBadge(c.research_status)}
+          ${c.research_status === 'failed' && c.error_message
+            ? `<div style="font-size:11px;color:var(--danger);margin-top:4px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(c.error_message)}">${esc(c.error_message)}</div>`
+            : ''}
+        </td>
         <td>${syncBadge(c.hubspot_sync_status)}</td>
         <td>
           <div class="actions">
@@ -1115,6 +1125,14 @@
     `;
 
     document.getElementById('modal-summary').textContent = company.business_summary || '—';
+
+    const errorBox = document.getElementById('modal-error-box');
+    if (company.research_status === 'failed' && company.error_message) {
+      errorBox.style.display = 'block';
+      document.getElementById('modal-error-text').textContent = company.error_message;
+    } else {
+      errorBox.style.display = 'none';
+    }
 
     const emailBox = document.getElementById('modal-email-pitch');
     emailBox.innerHTML = `<button class="copy-btn" onclick="copyText('modal-email-pitch')">Copy</button>${esc(company.email_pitch || '—')}`;
